@@ -23,8 +23,11 @@ namespace Tacos {
 
         [[nodiscard]] int getChunksCount() const noexcept;
 
+    [[nodiscard]] int chunksPerNpu() const noexcept;
+
     protected:
         int chunksCount;
+        int chunksPerNpu_ = 0;
 
         void add(ChunkId chunkId, NpuId src, NpuId dest) noexcept;
         void updateChunksCount() noexcept;

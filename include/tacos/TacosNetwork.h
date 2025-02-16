@@ -9,6 +9,7 @@ LICENSE file in the root directory of this source tree.
 #include "Typing.h"
 #include <algorithm>
 #include <random>
+#include <memory>
 #include <vector>
 
 namespace Tacos {

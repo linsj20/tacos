@@ -45,3 +45,8 @@ int Collective::getChunksCount() const noexcept {
 void Collective::updateChunksCount() noexcept {
     chunksCount = static_cast<int>(chunks.size());
 }
+
+int Collective::chunksPerNpu() const noexcept {
+    assert(chunksPerNpu_ > 0);
+    return chunksPerNpu_;
+}

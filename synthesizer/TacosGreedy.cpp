@@ -12,7 +12,7 @@ LICENSE file in the root directory of this source tree.
 using namespace Tacos;
 
 TacosGreedy::TacosGreedy(const std::shared_ptr<Topology> topology, const std::shared_ptr<Collective> collective) noexcept
-    : topology(topology), collective(collective) {
+    : topology(topology), collective(collective), synthesisResult(topology, collective) {
     // set values
     npusCount = topology->getNpusCount();
     chunksCount = collective->getChunksCount();
@@ -22,7 +22,7 @@ TacosGreedy::TacosGreedy(const std::shared_ptr<Topology> topology, const std::sh
     network = std::make_unique<TacosNetwork>(topology, chunkSize);
 }
 
-Time TacosGreedy::solve() noexcept {
+SynthesisResult TacosGreedy::solve() noexcept {
     // allocate memory for contains
     auto contains = std::make_shared<Contains>(chunksCount, std::vector<bool>(npusCount, false));
 
@@ -106,9 +106,11 @@ Time TacosGreedy::solve() noexcept {
         network->reset();
     }
 
+    synthesisResult.collectiveTime(collectiveTime);
+
     // all matching has been finished
     // return measured collective time
-    return collectiveTime;
+    return synthesisResult;
 }
 
 std::shared_ptr<TacosGreedy::RequestSet>
@@ -207,6 +209,8 @@ bool TacosGreedy::prepareBacktracking(std::shared_ptr<RequestSet> requests, cons
             // TODO: match made: chunk: src -> dest
             // TODO: for now, just printing out the match
             std::cout << "[Time " << currentTime << "] Chunk " << chunk << " arrived: " << src << " -> " << dest << std::endl;
+            synthesisResult.npu(src).linkTo(dest).send(chunk);
+            synthesisResult.npu(dest).linkFrom(src).recv(chunk);
 
             // reset chunk and link time
             network->setProcessingChunk(link, -1);

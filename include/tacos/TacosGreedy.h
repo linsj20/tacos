@@ -9,6 +9,7 @@ LICENSE file in the root directory of this source tree.
 #include "EventQueue.h"
 #include "TacosNetwork.h"
 #include "Topology.h"
+#include "Synthesis_result.h"
 #include <array>
 #include <memory>
 
@@ -17,7 +18,7 @@ namespace Tacos {
     public:
         TacosGreedy(std::shared_ptr<Topology> topology, std::shared_ptr<Collective> collective) noexcept;
 
-        [[nodiscard]] Time solve() noexcept;
+        [[nodiscard]] SynthesisResult solve() noexcept;
 
     private:
         using RequestSet = std::vector<std::pair<ChunkId, NpuId>>;
@@ -29,6 +30,8 @@ namespace Tacos {
 
         std::shared_ptr<Topology> topology;
         std::shared_ptr<Collective> collective;
+
+        SynthesisResult synthesisResult;
 
         int npusCount;
         int chunksCount;

@@ -7,7 +7,10 @@ LICENSE file in the root directory of this source tree.
 #include "Mesh2D.h"
 #include "TacosGreedy.h"
 #include "Timer.h"
+#include "Logger.h"
+#include "Xml_writer.h"
 #include <iostream>
+
 
 using namespace Tacos;
 
@@ -43,15 +46,19 @@ int main() {
     // create solver and solve
     solverTimer.start();
     auto solver = TacosGreedy(topology, collective);
-    auto collectiveTime = solver.solve();
+    auto result = solver.solve();
     solverTimer.stop();
 
     // print result
     auto time = solverTimer.getTime("ms");
+    auto collectiveTime = result.collectiveTime();
     std::cout << std::endl;
     std::cout << "Time to solve: " << time << " ms" << std::endl;
     std::cout << "All-Gather Time: " << collectiveTime << " us" << std::endl;
     std::cout << "All-Reduce Time: " << collectiveTime * 2 << " us" << std::endl;
+
+    auto xmlWriter = XmlWriter("tacos.xml", topology, collective, result);
+    xmlWriter.write();
 
     // terminate
     return 0;
