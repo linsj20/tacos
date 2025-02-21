@@ -20,17 +20,17 @@ int main() {
     std::cout.precision(2);
 
     // construct a topology
-    const auto width = 4;
-    const auto height = 2;
+    const auto width = 8;
+    const auto height = 4;
     /*
     const auto bandwidth_0 = 15;  // GB/s
     const auto latency_0 = 700;     // ns
     const auto bandwidth_1 = 15;  // GB/s
     const auto latency_1 = 700;     // ns
     */
-    const auto bandwidth_0 = 125 / 8;  // GB/s
+    const auto bandwidth_0 = 125;  // GB/s
     const auto latency_0 = 700;     // ns
-    const auto bandwidth_1 = 12.0 / 8 / 8;  // GB/s
+    const auto bandwidth_1 = 12.0 / 8;  // GB/s
     const auto latency_1 = 1700;     // ns
 
     const auto beta_0 = 1'000'000 / (bandwidth_0 * 1024.0);  // us/MiB
@@ -43,7 +43,7 @@ int main() {
     std::cout << "NPUs count: " << npusCount << std::endl;
 
     // create collective
-    const auto collectiveSize = 1.0;  // MB
+    const auto collectiveSize = 128.0;  // MB
     const auto initChunks = 1;  // initial #chunks per NPU
     const auto chunkSize = collectiveSize / (initChunks * npusCount);  // bytes per chunk
     const auto collective = std::make_shared<AllGather>(npusCount, chunkSize, initChunks);

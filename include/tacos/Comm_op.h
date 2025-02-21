@@ -22,6 +22,8 @@ class CommOp {
 
     void setDepOp(CommOp* depOp);
 
+    void setDepended();
+
     [[nodiscard]] ChunkId chunkId() const noexcept;
 
     [[nodiscard]] bool hasDep() const noexcept;
@@ -32,12 +34,15 @@ class CommOp {
 
     [[nodiscard]] const CommOp* depOp() const noexcept;
 
+    [[nodiscard]] bool depended() const noexcept;
+
   private:
     ChunkId chunkId_;
     LinkId linkId_;
     OpId opId_;
 
     bool hasDep_ = false;
+    bool depended_ = false;
     CommOp* depOp_;
 };
 
