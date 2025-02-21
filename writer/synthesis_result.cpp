@@ -32,7 +32,7 @@ SynthesisResult::SynthesisResult(
         }
     }
     */
-    for (const auto& [src, chunk] : precondition) {
+    for (const auto& [chunk, src] : precondition) {
         npus_[src].registerRecvDep(chunk, nullptr);
     }
 }

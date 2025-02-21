@@ -15,6 +15,7 @@ AllGather::AllGather(const int npusCount, const ChunkSize chunkSize, const int c
     assert(collectivesCount > 0);
 
     auto chunkId = 0;
+    chunksPerNpu_ = npusCount * collectivesCount;
 
     for (int i = 0; i < collectivesCount; i++) {
         for (int src = 0; src < npusCount; src++) {
