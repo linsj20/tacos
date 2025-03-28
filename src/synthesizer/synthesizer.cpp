@@ -152,6 +152,7 @@ std::set<Synthesizer::NpuID> Synthesizer::checkCandidateSourceNpus(
     auto candidateSourceNpus = std::set<NpuID>();
 
     // check which source NPUs hold the chunk
+    // TODO consider switch condition
     for (const auto src : sourceNpus) {
         const auto chunksAtSrc = currentPrecondition.at(src);
         if (chunksAtSrc.find(chunk) != chunksAtSrc.end()) {
@@ -173,6 +174,8 @@ Synthesizer::NpuID Synthesizer::selectSourceNpu(
     }
 
     // randomly select one candidate source NPU
+    // TODO add time consideration
+    // TODO consider switch condition
     auto candidateSourceNpusDist =
         std::uniform_int_distribution<>(0, candidateSourceNpus.size() - 1);
     int randomSrcIdx = candidateSourceNpusDist(randomEngine);

@@ -27,6 +27,7 @@ std::set<TimeExpandedNetwork::NpuID> TimeExpandedNetwork::backtrackTEN(
     assert(0 <= dest && dest < npusCount);
 
     // check available source links
+    //TODO (linsj20) change linkAvailable from bool to a path_ptr
     auto sourceNpus = std::set<NpuID>();
     for (auto src = 0; src < npusCount; src++) {
         if (linkAvailable[src][dest]) {
@@ -54,6 +55,7 @@ void TimeExpandedNetwork::markLinkOccupied(const NpuID src,
     assert(src != dest);
 
     // mark the link as occupied
+    // TODO (linsj20) mark switches on the path
     const auto linkDelay = topology->getLinkDelay(src, dest);
     linkBusyUntil[src][dest] = currentTime;
     linkAvailable[src][dest] = false;

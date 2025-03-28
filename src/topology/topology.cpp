@@ -30,6 +30,7 @@ void Topology::setNpusCount(const int newNpusCount) noexcept {
         std::vector<Time>(npusCount, std::numeric_limits<uint64_t>::max()));
 }
 
+// TODO support NPU+switch conncection
 void Topology::connect(const NpuID src,
                        const NpuID dest,
                        const Latency latency,
@@ -59,6 +60,8 @@ bool Topology::isConnected(const NpuID src, const NpuID dest) const noexcept {
     assert(0 <= src && src < npusCount);
     assert(0 <= dest && dest < npusCount);
 
+    // TODO change connected output from bool to path
+
     return connected[src][dest];
 }
 
@@ -71,6 +74,7 @@ void Topology::setChunkSize(const ChunkSize newChunkSize) noexcept {
     chunkSizeSet = true;
 
     // calculate link delays
+    // TODO (linsj20) consider switch bandwidth share
     for (auto src = 0; src < npusCount; src++) {
         for (auto dest = 0; dest < npusCount; dest++) {
             if (!connected[src][dest]) {
@@ -98,6 +102,7 @@ Topology::Time Topology::computeLinkDelay(const NpuID src,
     assert(0 <= src && src < npusCount);
     assert(0 <= dest && dest < npusCount);
 
+    // TODO consider switches
     // calculate beta (ns/B)
     const auto bandwidthBytesPerNS = bandwidths[src][dest] * (1 << 30) / 1e9;
     const auto beta = 1 / bandwidthBytesPerNS;
