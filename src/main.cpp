@@ -10,7 +10,7 @@ Copyright (c) 2022 Georgia Institute of Technology
 #include <tacos/event-queue/timer.h>
 #include <tacos/logger/logger.h>
 #include <tacos/synthesizer/synthesizer.h>
-#include <tacos/topology/mesh_2d.h>
+#include <tacos/topology/heteromesh_2d_switch.h>
 #include <tacos/writer/xml_writer.h>
 
 using namespace tacos;
@@ -20,13 +20,15 @@ int main() {
     Logger::init("tacos.log");
 
     // construct a topology
-    const auto width = 3;
-    const auto height = 3;
-    const auto bandwidth = 50.0;  // GB/s
-    const auto latency = 500;     // ns
+    const auto node_size = 8;
+    const auto node_num = 2;
+    const auto intra_bandwidth = 25.0;  // GB/s
+    const auto intra_latency = 1500;     // ns
+    const auto inter_bandwidth = 300.0;  // GB/s
+    const auto inter_latency = 500;     // ns
 
     const auto topology =
-        std::make_shared<Mesh2D>(width, height, latency, bandwidth);
+        std::make_shared<HeteroMesh2DSwitch>(node_size, node_num, intra_bandwidth, intra_latency, inter_bandwidth, inter_latency);
     const auto npusCount = topology->getNpusCount();
 
     Logger::info("Topology Information");

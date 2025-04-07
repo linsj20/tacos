@@ -65,15 +65,17 @@ class Synthesizer {
     [[nodiscard]] std::pair<NpuID, ChunkID> selectPostcondition(
         CollectiveCondition* const currentPostcondition) noexcept;
 
-    [[nodiscard]] std::set<NpuID> checkCandidateSourceNpus(
+    [[nodiscard]] std::set<std::pair<Synthesizer::NpuID, const Path *>> checkCandidateSourceNpus(
         ChunkID chunk,
         const CollectiveCondition& currentPrecondition,
-        const std::set<NpuID>& sourceNpus) noexcept;
+        const std::set<std::pair<NpuID, const Path *>>& sourceNpus) noexcept;
 
-    [[nodiscard]] NpuID selectSourceNpu(
-        const std::set<NpuID>& candidateSourceNpus) noexcept;
+    [[nodiscard]] std::pair<Synthesizer::NpuID, const Path *> selectSourceNpu(
+        const std::set<std::pair<NpuID, const Path *>>& candidateSourceNpus) noexcept;
 
     void markLinkChunkMatch(NpuID src, NpuID dest, ChunkID chunk) noexcept;
+
+    void markPathChunkMatch(Path &path, ChunkID chunk) noexcept;
 
     void processInitialPostcondition() noexcept;
 

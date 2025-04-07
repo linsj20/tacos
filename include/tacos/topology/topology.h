@@ -16,6 +16,15 @@ Copyright (c) 2022 Georgia Institute of Technology
 
 namespace tacos {
 
+struct Path {
+    using NpuID = int;
+    using Latency = double;      // ns
+    using Bandwidth = double;    // GB/s ~ B/ns
+    std::vector<NpuID>* path;
+    Bandwidth bandwidth;
+    Latency latency;
+};
+
 class Topology {
 
   public:
@@ -44,8 +53,16 @@ class Topology {
 
     [[nodiscard]] Bandwidth getBandwidth(NpuID src, NpuID dest) const noexcept;
 
+    [[nodiscard]] std::vector<Path> getPaths(NpuID src, NpuID dest) const noexcept;
+
+    void setPath() noexcept;
+
+    ChunkSize getChunkSize() const noexcept {
+        return chunkSize;
+    }
+
   protected:
-    void setNpusCount(int newNpusCount) noexcept;
+    void setNpusCount(int newNpusCount, int newSwitchSize=0) noexcept;
 
     void connect(NpuID src,
                  NpuID dest,
@@ -57,13 +74,16 @@ class Topology {
     int npusCount = -1;
     int linksCount = 0;
     bool npusCountSet = false;
+    bool pathSet = false;
 
     std::set<Time> distinctLinkDelays = {};
 
     std::vector<std::vector<bool>> connected = {};
     std::vector<std::vector<Latency>> latencies = {};
     std::vector<std::vector<Bandwidth>> bandwidths = {};
+    //std::vector<std::vector<std::set<Time>>> linkDelays = {};
     std::vector<std::vector<Time>> linkDelays = {};
+    std::vector<std::vector<std::vector<Path>>> shortestPaths = {};
 
     Time computeLinkDelay(NpuID src, NpuID dest) const noexcept;
 

@@ -11,6 +11,8 @@ Copyright (c) 2022 Georgia Institute of Technology
 #include <memory>
 #include <tacos/event-queue/event_queue.h>
 #include <tacos/topology/topology.h>
+#include <vector>
+#include <map>
 
 namespace tacos {
 
@@ -23,9 +25,11 @@ class TimeExpandedNetwork {
 
     void updateCurrentTime(Time newCurrentTime) noexcept;
 
-    std::set<NpuID> backtrackTEN(NpuID dest) const noexcept;
+    std::set<std::pair<NpuID, const Path *>> backtrackTEN(NpuID dest) const noexcept;
 
     void markLinkOccupied(NpuID src, NpuID dest) noexcept;
+
+    void assignPath(const Path *path) noexcept;
 
   private:
     Time currentTime = 0;
@@ -33,10 +37,10 @@ class TimeExpandedNetwork {
     int npusCount;
     std::shared_ptr<Topology> topology;
 
-    std::vector<std::vector<Time>> linkBusyUntil = {};
-    std::vector<std::vector<bool>> linkAvailable = {};
+    std::vector<std::vector<std::vector<const Path *>>> linkCondition = {};
+    std::map<const Path *, std::pair<double, double>> pathsInUse = {};
 
-    void updateLinkAvailability() noexcept;
+    void updateLinkAvailability(Time delta) noexcept;
 
     [[nodiscard]] bool checkLinkAvailability(NpuID src,
                                              NpuID dest) const noexcept;

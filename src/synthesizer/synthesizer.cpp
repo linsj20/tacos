@@ -102,7 +102,9 @@ void Synthesizer::linkChunkMatching() noexcept {
         }
 
         // randomly select one candidate source NPU
-        auto src = selectSourceNpu(candidateSourceNpus);
+        auto [src, path] = selectSourceNpu(candidateSourceNpus);
+
+        ten.assignPath(path);
 
         // link-chunk match made: mark this
         markLinkChunkMatch(src, dest, chunk);
@@ -141,30 +143,29 @@ std::pair<Synthesizer::NpuID, Synthesizer::ChunkID> Synthesizer::
     return {dest, chunk};
 }
 
-std::set<Synthesizer::NpuID> Synthesizer::checkCandidateSourceNpus(
+std::set<std::pair<Synthesizer::NpuID, const Path *>> Synthesizer::checkCandidateSourceNpus(
     const ChunkID chunk,
     const CollectiveCondition& currentPrecondition,
-    const std::set<NpuID>& sourceNpus) noexcept {
+    const std::set<std::pair<NpuID, const Path *>>& sourceNpus) noexcept {
     assert(0 <= chunk && chunk < chunksCount);
     assert(!currentPrecondition.empty());
     assert(!sourceNpus.empty());
 
-    auto candidateSourceNpus = std::set<NpuID>();
+    auto candidateSourceNpus = std::set<std::pair<NpuID, const Path*>>();
 
     // check which source NPUs hold the chunk
-    // TODO consider switch condition
-    for (const auto src : sourceNpus) {
+    for (const auto& [src, path] : sourceNpus) {
         const auto chunksAtSrc = currentPrecondition.at(src);
         if (chunksAtSrc.find(chunk) != chunksAtSrc.end()) {
-            candidateSourceNpus.insert(src);
+            candidateSourceNpus.insert(std::pair<NpuID, const Path*>(src, path));
         }
     }
 
     return candidateSourceNpus;
 }
 
-Synthesizer::NpuID Synthesizer::selectSourceNpu(
-    const std::set<NpuID>& candidateSourceNpus) noexcept {
+std::pair<Synthesizer::NpuID, const Path *> Synthesizer::selectSourceNpu(
+    const std::set<std::pair<NpuID, const Path *>>& candidateSourceNpus) noexcept {
     assert(!candidateSourceNpus.empty());
 
     // if only one candidate source NPU, return it
