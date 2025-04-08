@@ -22,9 +22,9 @@ HeteroMesh2DSwitch::HeteroMesh2DSwitch(const int node_size,
     assert(node_size > 0);
     assert(node_num > 0);
     assert(latency_0 >= 0);
-    assert(bandnode_size_0 > 0);
+    assert(bandwidth_0 > 0);
     assert(latency_1 >= 0);
-    assert(bandnode_size_1 > 0);
+    assert(bandwidth_1 > 0);
 
     // compute GPUs count
     setNpusCount(node_size * node_num, node_num);

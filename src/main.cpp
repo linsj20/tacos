@@ -20,7 +20,7 @@ int main() {
     Logger::init("tacos.log");
 
     // construct a topology
-    const auto node_size = 8;
+    const auto node_size = 2;
     const auto node_num = 2;
     const auto intra_bandwidth = 25.0;  // GB/s
     const auto intra_latency = 1500;     // ns
@@ -29,7 +29,7 @@ int main() {
 
     const auto topology =
         std::make_shared<HeteroMesh2DSwitch>(node_size, node_num, intra_bandwidth, intra_latency, inter_bandwidth, inter_latency);
-    const auto npusCount = topology->getNpusCount();
+    const auto npusCount = node_size * node_num;
 
     Logger::info("Topology Information");
     Logger::info("\t", "- NPUs Count: ", npusCount);

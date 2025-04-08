@@ -11,8 +11,10 @@ Copyright (c) 2022 Georgia Institute of Technology
 #include <memory>
 #include <tacos/event-queue/event_queue.h>
 #include <tacos/topology/topology.h>
+#include <tacos/collective/collective.h>
 #include <vector>
 #include <map>
+#include <tuple>
 
 namespace tacos {
 
@@ -20,30 +22,30 @@ class TimeExpandedNetwork {
   public:
     using Time = EventQueue::Time;
     using NpuID = Topology::NpuID;
+    using ChunkID = Collective::ChunkID;
 
     explicit TimeExpandedNetwork(std::shared_ptr<Topology> topology) noexcept;
 
-    void updateCurrentTime(Time newCurrentTime) noexcept;
+    std::shared_ptr<std::vector<std::tuple<NpuID, NpuID, ChunkID>>> updateCurrentTime(Time newCurrentTime) noexcept;
 
-    std::set<std::pair<NpuID, const Path *>> backtrackTEN(NpuID dest) const noexcept;
+    std::set<std::pair<NpuID, const Path *>> backtrackTEN(NpuID dest) noexcept;
 
     void markLinkOccupied(NpuID src, NpuID dest) noexcept;
 
-    void assignPath(const Path *path) noexcept;
+    void assignPath(const Path *path, ChunkID chunk) noexcept;
+
+    bool complete() const noexcept;
 
   private:
     Time currentTime = 0;
 
-    int npusCount;
+    int npusCount, switchCount;
     std::shared_ptr<Topology> topology;
 
     std::vector<std::vector<std::vector<const Path *>>> linkCondition = {};
-    std::map<const Path *, std::pair<double, double>> pathsInUse = {};
+    std::map<const Path *, std::tuple<ChunkID, double, double>> pathsInUse = {};
 
-    void updateLinkAvailability(Time delta) noexcept;
-
-    [[nodiscard]] bool checkLinkAvailability(NpuID src,
-                                             NpuID dest) const noexcept;
+    std::shared_ptr<std::vector<std::tuple<NpuID, NpuID, ChunkID>>> updateLinkAvailability(Time delta) noexcept;
 };
 
 }  // namespace tacos

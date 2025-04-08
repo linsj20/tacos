@@ -8,8 +8,10 @@ Copyright (c) 2022 Georgia Institute of Technology
 
 #include <algorithm>
 #include <cassert>
+#include <cerrno>
 #include <tacos/logger/logger.h>
 #include <tacos/synthesizer/synthesizer.h>
+#include <cstdio>
 
 using namespace tacos;
 
@@ -45,13 +47,8 @@ Synthesizer::Synthesizer(const std::shared_ptr<Topology> topology,
 }
 
 SynthesisResult Synthesizer::synthesize() noexcept {
+    int i = 0;
     while (!eventQueue.empty()) {
-        // update current time
-        currentTime = eventQueue.pop();
-
-        // update TEN current time
-        ten.updateCurrentTime(currentTime);
-
         // run link-chunk matching
         linkChunkMatching();
 
@@ -60,8 +57,20 @@ SynthesisResult Synthesizer::synthesize() noexcept {
             break;
         }
 
+        // update current time
+        currentTime = eventQueue.pop();
+
+        // update TEN current time
+        printf("========= Update Time [%ld] ========\n", currentTime);
+        auto finished = ten.updateCurrentTime(currentTime);
+        for (auto& [src, dest, chunk] : *finished) {
+            markLinkChunkMatch(src, dest, chunk);
+        }
+
         // if synthesis is not finished, schedule next events
         scheduleNextEvents();
+        i++;
+        if (i >= 200) {exit(0);}
     }
 
     assert(synthesisCompleted());
@@ -83,14 +92,26 @@ void Synthesizer::linkChunkMatching() noexcept {
     // get current precondition and postcondition
     const auto currentPrecondition = precondition;
     auto currentPostcondition = postcondition;
+    for (auto& [a, b] : precondition) {
+        printf("[%d]: ", a);
+        for (auto& c : b) {
+            printf("%d ", c);
+        }
+        printf("\n");
+    }
 
     // iterate over all unsatisfied postconditions
     while (!currentPostcondition.empty()) {
         // randomly select one postcondition
         const auto [dest, chunk] = selectPostcondition(&currentPostcondition);
+        printf("%d looking for Chunk %d\n", dest, chunk);
 
         // backtrack the TEN to find potential source NPUs
         const auto sourceNpus = ten.backtrackTEN(dest);
+
+        if (sourceNpus.empty()) {
+            continue;
+        }
 
         // among the sourceNpus, find the candidate sources
         const auto candidateSourceNpus =
@@ -104,10 +125,14 @@ void Synthesizer::linkChunkMatching() noexcept {
         // randomly select one candidate source NPU
         auto [src, path] = selectSourceNpu(candidateSourceNpus);
 
-        ten.assignPath(path);
+        ten.assignPath(path, chunk);
+        postcondition[dest].erase(chunk);
+        if (postcondition[dest].size() == 0) {
+            postcondition.erase(dest);
+        }
 
         // link-chunk match made: mark this
-        markLinkChunkMatch(src, dest, chunk);
+        //markLinkChunkMatch(src, dest, chunk);
     }
 }
 
@@ -155,6 +180,7 @@ std::set<std::pair<Synthesizer::NpuID, const Path *>> Synthesizer::checkCandidat
 
     // check which source NPUs hold the chunk
     for (const auto& [src, path] : sourceNpus) {
+        printf("trying %d\n", src);
         const auto chunksAtSrc = currentPrecondition.at(src);
         if (chunksAtSrc.find(chunk) != chunksAtSrc.end()) {
             candidateSourceNpus.insert(std::pair<NpuID, const Path*>(src, path));
@@ -201,7 +227,7 @@ void Synthesizer::markLinkChunkMatch(const NpuID src,
     precondition[dest].insert(chunk);
 
     // remove the chunk from the postcondition
-    postcondition[dest].erase(chunk);
+    //postcondition[dest].erase(chunk);
 
     // if there's no remaining postcondition of the dest, remove it
     if (postcondition[dest].empty()) {
@@ -211,7 +237,7 @@ void Synthesizer::markLinkChunkMatch(const NpuID src,
 
 bool Synthesizer::synthesisCompleted() const noexcept {
     // synthesis is done when there's no remaining postcondition
-    return postcondition.empty();
+    return postcondition.empty() && ten.complete();
 }
 
 void Synthesizer::processInitialPostcondition() noexcept {

@@ -26,32 +26,37 @@ void Topology::setNpusCount(const int newNpusCount, const int newSwitchesCount) 
     assert(newSwitchesCount >= 0);
     assert(newNpusCount > 0);
 
-    npusCount = newNpusCount + newSwitchesCount;
+    //npusCount = newNpusCount + newSwitchesCount;
+    npusCount = newNpusCount;
+    switchCount = newSwitchesCount;
     npusCountSet = true;
 
+    auto deviceCount = npusCount + switchCount;
+
     // allocate memory
-    connected.resize(npusCount, std::vector(npusCount, false));
-    latencies.resize(npusCount, std::vector<Latency>(npusCount, -1));
-    bandwidths.resize(npusCount, std::vector<Bandwidth>(npusCount, -1));
+    connected.resize(deviceCount, std::vector(deviceCount, false));
+    latencies.resize(deviceCount, std::vector<Latency>(deviceCount, -1));
+    bandwidths.resize(deviceCount, std::vector<Bandwidth>(deviceCount, -1));
     linkDelays.resize(
-        npusCount,
-        std::vector<Time>(npusCount, std::numeric_limits<uint64_t>::max()));
+        deviceCount,
+        std::vector<Time>(deviceCount, std::numeric_limits<uint64_t>::max()));
     shortestPaths.resize(
-        npusCount, 
-        std::vector<std::vector<Path>>(npusCount, std::vector<Path>()));
+        deviceCount, 
+        std::vector<std::vector<Path>>(deviceCount, std::vector<Path>()));
 }
 
 // TODO 1. Add Path (linked list)
 void Topology::setPath() noexcept {
     assert(!pathSet);
     pathSet = true;
+    auto deviceCount = npusCount + switchCount;
 
     const Latency LARGE_TIME = 1e9;
-    std::vector<std::vector<Latency>> times(npusCount, std::vector<Latency>(npusCount, LARGE_TIME));
+    std::vector<std::vector<Latency>> times(deviceCount, std::vector<Latency>(deviceCount, LARGE_TIME));
 
     // Initialize latency matrix
-    for (int src = 0; src < npusCount; ++src) {
-        for (int dest = 0; dest < npusCount; ++dest) {
+    for (int src = 0; src < deviceCount; ++src) {
+        for (int dest = 0; dest < deviceCount; ++dest) {
             if (bandwidths[src][dest] > 0) {
                 times[src][dest] = 1e6 / bandwidths[src][dest];
             }
@@ -59,9 +64,9 @@ void Topology::setPath() noexcept {
     }
 
     // Process each source node
-    for (int src = 0; src < npusCount; ++src) {
+    for (int src = 0; src < deviceCount; ++src) {
         // Dijkstra's algorithm for shortest distances
-        std::vector<Latency> dist(npusCount, LARGE_TIME);
+        std::vector<Latency> dist(deviceCount, LARGE_TIME);
         std::priority_queue<std::pair<Latency, int>,
                           std::vector<std::pair<Latency, int>>,
                           std::greater<>> pq;
@@ -73,7 +78,7 @@ void Topology::setPath() noexcept {
             pq.pop();
             if (current_dist > dist[u]) continue;
 
-            for (int v = 0; v < npusCount; ++v) {
+            for (int v = 0; v < deviceCount; ++v) {
                 const Latency travel_time = times[u][v];
                 if (travel_time == LARGE_TIME) continue;
 
@@ -85,10 +90,10 @@ void Topology::setPath() noexcept {
         }
 
         // Find predecessors for path reconstruction
-        std::vector<std::vector<int>> predecessors(npusCount);
-        for (int u = 0; u < npusCount; ++u) {
+        std::vector<std::vector<int>> predecessors(deviceCount);
+        for (int u = 0; u < deviceCount; ++u) {
             if (dist[u] == LARGE_TIME) continue;
-            for (int v = 0; v < npusCount; ++v) {
+            for (int v = 0; v < deviceCount; ++v) {
                 if (times[v][u] != LARGE_TIME &&
                     std::abs(dist[v] + times[v][u] - dist[u]) < 1e-9) {
                     predecessors[u].push_back(v);
@@ -97,12 +102,12 @@ void Topology::setPath() noexcept {
         }
 
         // Reconstruct paths using dynamic programming
-        std::vector<int> processing_order(npusCount);
+        std::vector<int> processing_order(deviceCount);
         std::iota(processing_order.begin(), processing_order.end(), 0);
         std::sort(processing_order.begin(), processing_order.end(),
             [&dist](int a, int b) { return dist[a] < dist[b]; });
 
-        std::vector<std::vector<std::vector<int>>> all_paths(npusCount);
+        std::vector<std::vector<std::vector<int>>> all_paths(deviceCount);
         if (dist[src] < LARGE_TIME) {
             all_paths[src].push_back({src});
         }
@@ -120,7 +125,7 @@ void Topology::setPath() noexcept {
         }
 
         // Store results in shortestPaths
-        for (int dest = 0; dest < npusCount; ++dest) {
+        for (int dest = 0; dest < deviceCount; ++dest) {
             auto& dest_paths = shortestPaths[src][dest];
             for (const auto& node_path : all_paths[dest]) {
                 Path p;
@@ -130,9 +135,8 @@ void Topology::setPath() noexcept {
             }
         }
     }
-    /*
-    for (int src = 0; src < npusCount; src++) {
-        for (int dest = 0; dest < npusCount; dest++) {
+    for (int src = 0; src < deviceCount; src++) {
+        for (int dest = 0; dest < deviceCount; dest++) {
             printf("%ld", shortestPaths[src][dest].size());
             printf("(");
             for (auto npu : *shortestPaths[src][dest][0].path) {
@@ -142,8 +146,6 @@ void Topology::setPath() noexcept {
         }
         printf("\n");
     }
-    */
-    exit(1);
 }
 
 void Topology::connect(const NpuID src,
@@ -151,8 +153,8 @@ void Topology::connect(const NpuID src,
                        const Latency latency,
                        const Bandwidth bandwidth,
                        const bool bidirectional) noexcept {
-    assert(0 <= src && src < npusCount);
-    assert(0 <= dest && dest < npusCount);
+    assert(0 <= src && src < npusCount + switchCount);
+    assert(0 <= dest && dest < npusCount + switchCount);
     assert(src != dest);
     assert(latency >= 0);
     assert(bandwidth > 0);
@@ -191,7 +193,7 @@ void Topology::setChunkSize(const ChunkSize newChunkSize) noexcept {
     // (mark link with path nums)
     for (auto src = 0; src < npusCount; src++) {
         for (auto dest = 0; dest < npusCount; dest++) {
-            if (shortestPaths[src][dest].size() == 0) {
+            if (src == dest || shortestPaths[src][dest].size() == 0) {
                 continue;
             }
 
@@ -246,6 +248,12 @@ int Topology::getNpusCount() const noexcept {
     return npusCount;
 }
 
+int Topology::getSwitchCount() const noexcept {
+    assert(npusCountSet);
+
+    return switchCount;
+}
+
 Topology::Time Topology::getLinkDelay(NpuID src, NpuID dest) const noexcept {
     assert(npusCountSet);
     assert(chunkSizeSet);
@@ -261,8 +269,8 @@ int Topology::getLinksCount() const noexcept {
 
 Topology::Latency Topology::getLatency(NpuID src, NpuID dest) const noexcept {
     assert(npusCountSet);
-    assert(0 <= src && src < npusCount);
-    assert(0 <= dest && dest < npusCount);
+    assert(0 <= src && src < npusCount + switchCount);
+    assert(0 <= dest && dest < npusCount + switchCount);
 
     return latencies[src][dest];
 }
@@ -270,17 +278,17 @@ Topology::Latency Topology::getLatency(NpuID src, NpuID dest) const noexcept {
 Topology::Bandwidth Topology::getBandwidth(NpuID src,
                                            NpuID dest) const noexcept {
     assert(npusCountSet);
-    assert(0 <= src && src < npusCount);
-    assert(0 <= dest && dest < npusCount);
+    assert(0 <= src && src < npusCount + switchCount);
+    assert(0 <= dest && dest < npusCount + switchCount);
 
     return bandwidths[src][dest];
 }
 
 // TODO 1. Get Path
-std::vector<Path> Topology::getPaths(NpuID src, NpuID dest) const noexcept {
+const std::vector<Path>* Topology::getPaths(NpuID src, NpuID dest) const noexcept {
     assert(pathSet);
     assert(0 <= src && src < npusCount);
     assert(0 <= dest && dest < npusCount);
 
-    return shortestPaths[src][dest];
+    return &shortestPaths[src][dest];
 }

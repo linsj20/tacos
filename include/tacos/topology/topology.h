@@ -45,6 +45,8 @@ class Topology {
 
     [[nodiscard]] int getNpusCount() const noexcept;
 
+    [[nodiscard]] int getSwitchCount() const noexcept;
+
     [[nodiscard]] std::set<Time> getDistinctLinkDelays() const noexcept;
 
     [[nodiscard]] int getLinksCount() const noexcept;
@@ -53,7 +55,7 @@ class Topology {
 
     [[nodiscard]] Bandwidth getBandwidth(NpuID src, NpuID dest) const noexcept;
 
-    [[nodiscard]] std::vector<Path> getPaths(NpuID src, NpuID dest) const noexcept;
+    [[nodiscard]] const std::vector<Path>* getPaths(NpuID src, NpuID dest) const noexcept;
 
     void setPath() noexcept;
 
@@ -72,6 +74,7 @@ class Topology {
 
   private:
     int npusCount = -1;
+    int switchCount = -1;
     int linksCount = 0;
     bool npusCountSet = false;
     bool pathSet = false;

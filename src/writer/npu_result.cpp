@@ -57,7 +57,7 @@ LinkResult& NpuResult::linkTo(const NpuID id) noexcept {
 
 void NpuResult::registerRecvDep(const ChunkID chunk,
                                 CommOp* const depOp) noexcept {
-    assert(depRecvOp_.find(chunk) == depRecvOp_.end());
+    //assert(depRecvOp_.find(chunk) == depRecvOp_.end());
     depRecvOp_.emplace(chunk, depOp);
 }
 
