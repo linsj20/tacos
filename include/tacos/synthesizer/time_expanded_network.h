@@ -34,6 +34,8 @@ class TimeExpandedNetwork {
 
     void assignPath(const Path *path, ChunkID chunk) noexcept;
 
+    Time nextTime() noexcept;
+
     bool complete() const noexcept;
 
   private:
@@ -42,10 +44,13 @@ class TimeExpandedNetwork {
     int npusCount, switchCount;
     std::shared_ptr<Topology> topology;
 
-    std::vector<std::vector<std::vector<const Path *>>> linkCondition = {};
+    std::vector<std::vector<std::set<const Path *>>> linkCondition = {};
     std::map<const Path *, std::tuple<ChunkID, double, double>> pathsInUse = {};
+    std::set<Time, std::greater<Time>> pathEventTime = {};
 
     std::shared_ptr<std::vector<std::tuple<NpuID, NpuID, ChunkID>>> updateLinkAvailability(Time delta) noexcept;
+
+    Topology::Bandwidth getPathBandwidth(const Path *p) const noexcept;
 };
 
 }  // namespace tacos

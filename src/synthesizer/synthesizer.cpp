@@ -43,7 +43,7 @@ Synthesizer::Synthesizer(const std::shared_ptr<Topology> topology,
 
     // setup initial events
     currentTime = eventQueue.getCurrentTime();
-    scheduleNextEvents();
+    eventQueue.schedule(1);
 }
 
 SynthesisResult Synthesizer::synthesize() noexcept {
@@ -69,6 +69,7 @@ SynthesisResult Synthesizer::synthesize() noexcept {
 
         // if synthesis is not finished, schedule next events
         scheduleNextEvents();
+
         i++;
         if (i >= 200) {exit(0);}
     }
@@ -80,12 +81,16 @@ SynthesisResult Synthesizer::synthesize() noexcept {
 }
 
 void Synthesizer::scheduleNextEvents() noexcept {
+    /*
     assert(!distinctLinkDelays.empty());
 
     for (const auto linkDelay : distinctLinkDelays) {
         const auto nextEventTime = currentTime + linkDelay;
         eventQueue.schedule(nextEventTime);
     }
+    */
+    const auto nextEventTime = currentTime + ten.nextTime();
+    eventQueue.schedule(nextEventTime);
 }
 
 void Synthesizer::linkChunkMatching() noexcept {
@@ -104,7 +109,6 @@ void Synthesizer::linkChunkMatching() noexcept {
     while (!currentPostcondition.empty()) {
         // randomly select one postcondition
         const auto [dest, chunk] = selectPostcondition(&currentPostcondition);
-        printf("%d looking for Chunk %d\n", dest, chunk);
 
         // backtrack the TEN to find potential source NPUs
         const auto sourceNpus = ten.backtrackTEN(dest);
@@ -180,7 +184,6 @@ std::set<std::pair<Synthesizer::NpuID, const Path *>> Synthesizer::checkCandidat
 
     // check which source NPUs hold the chunk
     for (const auto& [src, path] : sourceNpus) {
-        printf("trying %d\n", src);
         const auto chunksAtSrc = currentPrecondition.at(src);
         if (chunksAtSrc.find(chunk) != chunksAtSrc.end()) {
             candidateSourceNpus.insert(std::pair<NpuID, const Path*>(src, path));

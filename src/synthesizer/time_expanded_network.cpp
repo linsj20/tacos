@@ -26,7 +26,7 @@ TimeExpandedNetwork::TimeExpandedNetwork(
     npusCount = topology->getNpusCount();
     switchCount = topology->getSwitchCount();
 
-    linkCondition.resize(npusCount + switchCount, std::vector<std::vector<const Path*>>(npusCount + switchCount, std::vector<const Path*>()));
+    linkCondition.resize(npusCount + switchCount, std::vector<std::set<const Path*>>(npusCount + switchCount, std::set<const Path*>()));
 }
 
 std::set<std::pair<TimeExpandedNetwork::NpuID, const Path *>> TimeExpandedNetwork::backtrackTEN(
@@ -82,8 +82,10 @@ std::shared_ptr<std::vector<std::tuple<NpuID, NpuID, ChunkID>>> TimeExpandedNetw
     // TODO 3. Finalize PathOccupied
     assert(newCurrentTime > currentTime);
 
+    auto delta = newCurrentTime - currentTime;
+
     // update link availability
-    auto finished = updateLinkAvailability(newCurrentTime - currentTime);
+    auto finished = updateLinkAvailability(delta);
 
     for (NpuID src = 0; src < npusCount + switchCount; src++) {
         for (NpuID dest = 0; dest < npusCount + switchCount; dest++) {
@@ -116,19 +118,22 @@ void TimeExpandedNetwork::markLinkOccupied(const NpuID src,
 
 // TODO 3. markPathOccupied
 void TimeExpandedNetwork::assignPath(const Path *p, ChunkID chunk) noexcept {
-    for (auto a : pathsInUse) {
-        printf("%p ", a.first);
-    }
-    printf("\n");
-    //printf("%ld\n", pathsInUse.size());
     assert (pathsInUse.find(p) == pathsInUse.end());
     pathsInUse[p] = std::tuple<ChunkID, double, double>(chunk, (double)topology->getChunkSize(), p->latency);
     auto a = p->path->begin(), b = a;
     b++;
+    Topology::Bandwidth bd = std::numeric_limits<double>::max();
     while (b != p->path->end()) {
-        linkCondition[*a][*b].push_back(p);
+        linkCondition[*a][*b].insert(p);
+        bd = std::min(
+                bd, 
+                topology->getBandwidth(*a, *b) / 
+                        linkCondition[*a][*b].size());
         a++; b++;
     }
+
+    Time estimatedTime = currentTime + p->latency + (double)topology->getChunkSize() / bd;
+    pathEventTime.insert(estimatedTime + 1);
 }
 
 std::shared_ptr<std::vector<std::tuple<NpuID, NpuID, ChunkID>>> TimeExpandedNetwork::updateLinkAvailability(const Time delta) noexcept {
@@ -139,18 +144,7 @@ std::shared_ptr<std::vector<std::tuple<NpuID, NpuID, ChunkID>>> TimeExpandedNetw
             latency -= delta;
             continue;
         }
-        auto a = p->path->begin(), b = a;
-        b++;
-        Topology::Bandwidth bd = std::numeric_limits<double>::max();
-        while (b != p->path->end()) {
-            printf("%d %d: %f\n", *a, *b, topology->getBandwidth(*a, *b) / 
-                            linkCondition[*a][*b].size());
-            bd = std::min(
-                    bd, 
-                    topology->getBandwidth(*a, *b) / 
-                            linkCondition[*a][*b].size());
-            a++; b++;
-        }
+        Topology::Bandwidth bd = getPathBandwidth(p);
         printf("%f %f\n", workload, bd);
         workload -= (delta - latency) * bd;
 
@@ -158,7 +152,7 @@ std::shared_ptr<std::vector<std::tuple<NpuID, NpuID, ChunkID>>> TimeExpandedNetw
         printf("[%d->%d]: Chunk %d, latency left %f, workload left %f\n", p->path->front(), p->path->back(), chunk, latency, workload);
     }
 
-    std::vector<const Path *> toRemove;
+    std::set<const Path *> toRemove;
     for (auto& pair : pathsInUse) {
         const Path *p = pair.first;
         auto& [chunk, workload, latency] = pair.second;
@@ -167,13 +161,22 @@ std::shared_ptr<std::vector<std::tuple<NpuID, NpuID, ChunkID>>> TimeExpandedNetw
             auto a = p->path->begin(), b = a;
             b++;
             while (b != p->path->end()) {
-                auto pos = std::find(linkCondition[*a][*b].begin(), 
-                            linkCondition[*a][*b].end(), p);
+                auto pos = linkCondition[*a][*b].find(p);
                 assert (pos != linkCondition[*a][*b].end());
                 linkCondition[*a][*b].erase(pos);
+
+                auto iter = linkCondition[*a][*b].begin();
+                while (iter != linkCondition[*a][*b].end()) {
+                    const Path *pathAffected = *iter;
+                    auto pathBandwidth = getPathBandwidth(pathAffected);
+                    auto& [_chunk, _workload, _latency] = pathsInUse[pathAffected];
+                    if (_workload > 1e-9 || _latency > 1e-9) {
+                        pathEventTime.insert(currentTime + _latency + _workload / pathBandwidth + 1);
+                    }
+                }
                 a++; b++;
             }
-            toRemove.push_back(p);
+            toRemove.insert(p);
         }
     }
 
@@ -190,4 +193,29 @@ std::shared_ptr<std::vector<std::tuple<NpuID, NpuID, ChunkID>>> TimeExpandedNetw
 
 bool TimeExpandedNetwork::complete() const noexcept {
     return pathsInUse.size() == 0;
+}
+
+Time TimeExpandedNetwork::nextTime() noexcept {
+    assert (pathEventTime.size() > 0);
+
+    auto firstTime = pathEventTime.begin();
+    Time result = *firstTime;
+    assert (result > 1e-9);
+    pathEventTime.erase(firstTime);
+
+    return result;
+}
+
+Topology::Bandwidth TimeExpandedNetwork::getPathBandwidth(const Path *p) const noexcept {
+    Topology::Bandwidth bd = std::numeric_limits<double>::max();
+    auto a = p->path->begin(), b = a;
+    b++;
+    while (b != p->path->end()) {
+        bd = std::min(
+                bd, 
+                topology->getBandwidth(*a, *b) / 
+                        linkCondition[*a][*b].size());
+        a++; b++;
+    }
+    return bd;
 }
