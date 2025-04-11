@@ -23,12 +23,13 @@ class TimeExpandedNetwork {
     using Time = EventQueue::Time;
     using NpuID = Topology::NpuID;
     using ChunkID = Collective::ChunkID;
+    using Bandwidth = Topology::Bandwidth;
 
     explicit TimeExpandedNetwork(std::shared_ptr<Topology> topology) noexcept;
 
     std::shared_ptr<std::vector<std::tuple<NpuID, NpuID, ChunkID>>> updateCurrentTime(Time newCurrentTime) noexcept;
 
-    std::set<std::pair<NpuID, const Path *>> backtrackTEN(NpuID dest) noexcept;
+    std::set<std::pair<const Path *, Bandwidth>> backtrackTEN(NpuID dest) noexcept;
 
     void markLinkOccupied(NpuID src, NpuID dest) noexcept;
 
@@ -46,7 +47,7 @@ class TimeExpandedNetwork {
 
     std::vector<std::vector<std::set<const Path *>>> linkCondition = {};
     std::map<const Path *, std::tuple<ChunkID, double, double>> pathsInUse = {};
-    std::set<Time, std::greater<Time>> pathEventTime = {};
+    std::set<Time> pathEventTime = {};
 
     std::shared_ptr<std::vector<std::tuple<NpuID, NpuID, ChunkID>>> updateLinkAvailability(Time delta) noexcept;
 

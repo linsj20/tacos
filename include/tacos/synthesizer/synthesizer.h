@@ -24,6 +24,7 @@ class Synthesizer {
     using NpuID = Topology::NpuID;
     using ChunkID = Collective::ChunkID;
     using ChunkSize = Topology::ChunkSize;
+    using Bandwidth = Topology::Bandwidth;
     using CollectiveCondition = Collective::CollectiveCondition;
 
     Synthesizer(std::shared_ptr<Topology> topology,
@@ -65,13 +66,13 @@ class Synthesizer {
     [[nodiscard]] std::pair<NpuID, ChunkID> selectPostcondition(
         CollectiveCondition* const currentPostcondition) noexcept;
 
-    [[nodiscard]] std::set<std::pair<Synthesizer::NpuID, const Path *>> checkCandidateSourceNpus(
+    [[nodiscard]] std::set<std::pair<const Path *, Bandwidth>> checkCandidateSourceNpus(
         ChunkID chunk,
         const CollectiveCondition& currentPrecondition,
-        const std::set<std::pair<NpuID, const Path *>>& sourceNpus) noexcept;
+        const std::set<std::pair<const Path *, Bandwidth>>& sourceNpus) noexcept;
 
-    [[nodiscard]] std::pair<Synthesizer::NpuID, const Path *> selectSourceNpu(
-        const std::set<std::pair<NpuID, const Path *>>& candidateSourceNpus) noexcept;
+    [[nodiscard]] std::pair<const Path *, Bandwidth> selectSourceNpu(
+        const std::set<std::pair<const Path *, Bandwidth>>& candidateSourceNpus) noexcept;
 
     void markLinkChunkMatch(NpuID src, NpuID dest, ChunkID chunk) noexcept;
 

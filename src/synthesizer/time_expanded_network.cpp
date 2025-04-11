@@ -29,15 +29,15 @@ TimeExpandedNetwork::TimeExpandedNetwork(
     linkCondition.resize(npusCount + switchCount, std::vector<std::set<const Path*>>(npusCount + switchCount, std::set<const Path*>()));
 }
 
-std::set<std::pair<TimeExpandedNetwork::NpuID, const Path *>> TimeExpandedNetwork::backtrackTEN(
+std::set<std::pair<const Path *, Topology::Bandwidth>> TimeExpandedNetwork::backtrackTEN(
     const NpuID dest) noexcept {
     assert(0 <= dest && dest < npusCount);
 
-    const size_t allowedContention = 1;
+    const size_t allowedContention = 4;
 
     // check available source links
     //TODO (linsj20) change linkUserCount from bool to a path_ptr
-    auto sourceNpus = std::set<std::pair<TimeExpandedNetwork::NpuID, const Path *>>();
+    auto sourceNpus = std::set<std::pair<const Path *, Bandwidth>>();
     for (auto src = 0; src < npusCount; src++) {
         if (src == dest) {
             continue;
@@ -45,32 +45,35 @@ std::set<std::pair<TimeExpandedNetwork::NpuID, const Path *>> TimeExpandedNetwor
         const auto& paths = topology->getPaths(src, dest);
         bool npuAvailable = false;
         const Path *chosenPath = nullptr;
-        size_t bestContentionUsers = allowedContention;
+        Topology::Bandwidth bestBandwidth = std::numeric_limits<double>::min();
         for (auto& p : *paths) {
+            if (pathsInUse.find(&p) != pathsInUse.end()) continue;
             auto a = p.path->begin(), b = a;
             b++;
             bool pathAvailable = true;
-            size_t contentionUsers = 0;
+            Topology::Bandwidth bd = std::numeric_limits<double>::max();
             while (b != p.path->end()) {
                 if (linkCondition[*a][*b].size() >= allowedContention) {
                     pathAvailable = false;
                     break;
                 }
-                contentionUsers = std::max(contentionUsers, 
-                                           linkCondition[*a][*b].size());
+                bd = std::min(
+                        bd, 
+                        topology->getBandwidth(*a, *b) / 
+                                linkCondition[*a][*b].size());
                 a++; b++;
             }
             if (pathAvailable) {
                 if (chosenPath == nullptr || 
-                        contentionUsers < bestContentionUsers) {
+                        bd > bestBandwidth) {
                     chosenPath = &p;
-                    bestContentionUsers = contentionUsers;
+                    bestBandwidth = bd;
                 }
                 npuAvailable = true;
             }
         }
         if (npuAvailable) {
-            sourceNpus.insert(std::pair<NpuID, const Path *>(src, chosenPath));
+            sourceNpus.insert(std::pair<const Path *, Bandwidth>(chosenPath, bestBandwidth));
         }
     }
 
@@ -134,6 +137,7 @@ void TimeExpandedNetwork::assignPath(const Path *p, ChunkID chunk) noexcept {
 
     Time estimatedTime = currentTime + p->latency + (double)topology->getChunkSize() / bd;
     pathEventTime.insert(estimatedTime + 1);
+    printf("Time %ld inserted\n", estimatedTime + 1);
 }
 
 std::shared_ptr<std::vector<std::tuple<NpuID, NpuID, ChunkID>>> TimeExpandedNetwork::updateLinkAvailability(const Time delta) noexcept {
@@ -145,7 +149,6 @@ std::shared_ptr<std::vector<std::tuple<NpuID, NpuID, ChunkID>>> TimeExpandedNetw
             continue;
         }
         Topology::Bandwidth bd = getPathBandwidth(p);
-        printf("%f %f\n", workload, bd);
         workload -= (delta - latency) * bd;
 
         latency = 0;
@@ -172,7 +175,9 @@ std::shared_ptr<std::vector<std::tuple<NpuID, NpuID, ChunkID>>> TimeExpandedNetw
                     auto& [_chunk, _workload, _latency] = pathsInUse[pathAffected];
                     if (_workload > 1e-9 || _latency > 1e-9) {
                         pathEventTime.insert(currentTime + _latency + _workload / pathBandwidth + 1);
+                        printf("Time %ld inserted\n", (Time)(currentTime + _latency + _workload / pathBandwidth + 1));
                     }
+                    iter++;
                 }
                 a++; b++;
             }
@@ -202,6 +207,7 @@ Time TimeExpandedNetwork::nextTime() noexcept {
     Time result = *firstTime;
     assert (result > 1e-9);
     pathEventTime.erase(firstTime);
+    printf("Time %ld removed\n", result);
 
     return result;
 }

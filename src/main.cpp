@@ -20,7 +20,7 @@ int main() {
     Logger::init("tacos.log");
 
     // construct a topology
-    const auto node_size = 4;
+    const auto node_size = 8;
     const auto node_num = 2;
     const auto intra_bandwidth = 25.0;  // GB/s
     const auto intra_latency = 1500;     // ns

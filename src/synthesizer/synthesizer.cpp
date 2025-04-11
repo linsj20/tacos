@@ -9,6 +9,8 @@ Copyright (c) 2022 Georgia Institute of Technology
 #include <algorithm>
 #include <cassert>
 #include <cerrno>
+#include <iterator>
+#include <limits>
 #include <tacos/logger/logger.h>
 #include <tacos/synthesizer/synthesizer.h>
 #include <cstdio>
@@ -48,13 +50,18 @@ Synthesizer::Synthesizer(const std::shared_ptr<Topology> topology,
 
 SynthesisResult Synthesizer::synthesize() noexcept {
     int i = 0;
-    while (!eventQueue.empty()) {
+    while (true) {
         // run link-chunk matching
         linkChunkMatching();
 
         // if synthesis is completed, break
         if (synthesisCompleted()) {
             break;
+        }
+
+        // if synthesis is not finished, schedule next events
+        if (eventQueue.empty()) {
+            scheduleNextEvents();
         }
 
         // update current time
@@ -66,9 +73,6 @@ SynthesisResult Synthesizer::synthesize() noexcept {
         for (auto& [src, dest, chunk] : *finished) {
             markLinkChunkMatch(src, dest, chunk);
         }
-
-        // if synthesis is not finished, schedule next events
-        scheduleNextEvents();
 
         i++;
         if (i >= 200) {exit(0);}
@@ -89,7 +93,9 @@ void Synthesizer::scheduleNextEvents() noexcept {
         eventQueue.schedule(nextEventTime);
     }
     */
-    const auto nextEventTime = currentTime + ten.nextTime();
+    const auto nextTime = ten.nextTime();
+    printf("NextTime: %ld\n", nextTime);
+    const auto nextEventTime = nextTime;
     eventQueue.schedule(nextEventTime);
 }
 
@@ -127,7 +133,7 @@ void Synthesizer::linkChunkMatching() noexcept {
         }
 
         // randomly select one candidate source NPU
-        auto [src, path] = selectSourceNpu(candidateSourceNpus);
+        auto [path, bw] = selectSourceNpu(candidateSourceNpus);
 
         ten.assignPath(path, chunk);
         postcondition[dest].erase(chunk);
@@ -172,29 +178,29 @@ std::pair<Synthesizer::NpuID, Synthesizer::ChunkID> Synthesizer::
     return {dest, chunk};
 }
 
-std::set<std::pair<Synthesizer::NpuID, const Path *>> Synthesizer::checkCandidateSourceNpus(
+std::set<std::pair<const Path *, Topology::Bandwidth>> Synthesizer::checkCandidateSourceNpus(
     const ChunkID chunk,
     const CollectiveCondition& currentPrecondition,
-    const std::set<std::pair<NpuID, const Path *>>& sourceNpus) noexcept {
+    const std::set<std::pair<const Path *, Bandwidth>>& sourceNpus) noexcept {
     assert(0 <= chunk && chunk < chunksCount);
     assert(!currentPrecondition.empty());
     assert(!sourceNpus.empty());
 
-    auto candidateSourceNpus = std::set<std::pair<NpuID, const Path*>>();
+    auto candidateSourceNpus = std::set<std::pair<const Path*, Bandwidth>>();
 
     // check which source NPUs hold the chunk
-    for (const auto& [src, path] : sourceNpus) {
-        const auto chunksAtSrc = currentPrecondition.at(src);
+    for (const auto& [p, bw] : sourceNpus) {
+        const auto chunksAtSrc = currentPrecondition.at(p->path->front());
         if (chunksAtSrc.find(chunk) != chunksAtSrc.end()) {
-            candidateSourceNpus.insert(std::pair<NpuID, const Path*>(src, path));
+            candidateSourceNpus.insert(std::pair<const Path*, Bandwidth>(p, bw));
         }
     }
 
     return candidateSourceNpus;
 }
 
-std::pair<Synthesizer::NpuID, const Path *> Synthesizer::selectSourceNpu(
-    const std::set<std::pair<NpuID, const Path *>>& candidateSourceNpus) noexcept {
+std::pair<const Path *, Synthesizer::Bandwidth> Synthesizer::selectSourceNpu(
+    const std::set<std::pair<const Path *, Bandwidth>>& candidateSourceNpus) noexcept {
     assert(!candidateSourceNpus.empty());
 
     // if only one candidate source NPU, return it
@@ -202,14 +208,25 @@ std::pair<Synthesizer::NpuID, const Path *> Synthesizer::selectSourceNpu(
         const auto firstCandidate = candidateSourceNpus.begin();
         return *firstCandidate;
     }
+    
+    std::set<std::pair<const Path *, Bandwidth>> bestSourceNpus;
+    Bandwidth bestBandwidth = std::numeric_limits<Bandwidth>::min();
+    for (const auto& [p, bw] : candidateSourceNpus) {
+        if (bw > bestBandwidth) {
+            bestBandwidth = bw;
+        }
+    }
+    for (const auto& pair : candidateSourceNpus) {
+        if (pair.second == bestBandwidth) {
+            bestSourceNpus.insert(pair);
+        }
+    }
 
     // randomly select one candidate source NPU
-    // TODO add time consideration
-    // TODO consider switch condition
-    auto candidateSourceNpusDist =
-        std::uniform_int_distribution<>(0, candidateSourceNpus.size() - 1);
-    int randomSrcIdx = candidateSourceNpusDist(randomEngine);
-    auto randomSrcIt = std::next(candidateSourceNpus.begin(), randomSrcIdx);
+    auto bestSourceNpusDist =
+        std::uniform_int_distribution<>(0, bestSourceNpus.size() - 1);
+    int randomSrcIdx = bestSourceNpusDist(randomEngine);
+    auto randomSrcIt = std::next(bestSourceNpus.begin(), randomSrcIdx);
     return *randomSrcIt;
 }
 
