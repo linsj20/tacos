@@ -12,6 +12,7 @@ Copyright (c) 2022 Georgia Institute of Technology
 #include <tacos/event-queue/event_queue.h>
 #include <tacos/topology/topology.h>
 #include <tacos/collective/collective.h>
+#include <unordered_set>
 #include <vector>
 #include <map>
 #include <tuple>
@@ -29,7 +30,7 @@ class TimeExpandedNetwork {
 
     std::shared_ptr<std::vector<std::tuple<NpuID, NpuID, ChunkID>>> updateCurrentTime(Time newCurrentTime) noexcept;
 
-    std::set<std::pair<const Path *, Bandwidth>> backtrackTEN(NpuID dest) noexcept;
+    std::set<std::pair<const Path *, Bandwidth>> backtrackTEN(NpuID dest, ChunkID chunk) noexcept;
 
     void markLinkOccupied(NpuID src, NpuID dest) noexcept;
 
@@ -45,7 +46,8 @@ class TimeExpandedNetwork {
     int npusCount, switchCount;
     std::shared_ptr<Topology> topology;
 
-    std::vector<std::vector<std::set<const Path *>>> linkCondition = {};
+    std::vector<std::vector<std::unordered_set<const Path *>>> linkCondition = {};
+    std::vector<std::unordered_set<ChunkID>> groupCondition = {};
     std::map<const Path *, std::tuple<ChunkID, double, double>> pathsInUse = {};
     std::set<Time> pathEventTime = {};
 

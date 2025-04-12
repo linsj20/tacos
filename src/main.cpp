@@ -50,7 +50,7 @@ int main() {
     Logger::info();
 
     // instantiate synthesizer
-    auto synthesizer = Synthesizer(topology, collective);
+    auto synthesizer = Synthesizer(topology, collective, true);
 
     // create timer
     auto timer = Timer();

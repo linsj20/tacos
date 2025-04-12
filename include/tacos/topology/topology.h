@@ -12,6 +12,7 @@ Copyright (c) 2022 Georgia Institute of Technology
 #include <set>
 #include <tacos/event-queue/event_queue.h>
 #include <tuple>
+#include <unordered_set>
 #include <vector>
 
 namespace tacos {
@@ -63,6 +64,12 @@ class Topology {
         return chunkSize;
     }
 
+    int getGroupSize() const noexcept {
+        return groupCount;
+    }
+
+    int getGroup(NpuID npu) const noexcept;
+
   protected:
     void setNpusCount(int newNpusCount, int newSwitchSize=0) noexcept;
 
@@ -76,6 +83,7 @@ class Topology {
     int npusCount = -1;
     int switchCount = -1;
     int linksCount = 0;
+    int groupCount = 0;
     bool npusCountSet = false;
     bool pathSet = false;
 
@@ -87,8 +95,14 @@ class Topology {
     //std::vector<std::vector<std::set<Time>>> linkDelays = {};
     std::vector<std::vector<Time>> linkDelays = {};
     std::vector<std::vector<std::vector<Path>>> shortestPaths = {};
+    std::vector<int> groupInfo = {};
+    std::vector<std::unordered_set<NpuID>> groups = {};
 
     Time computeLinkDelay(NpuID src, NpuID dest) const noexcept;
+
+    void setGroup(std::vector<std::vector<Latency>> dists) noexcept;
+
+    int allocateGroup() noexcept;
 
     ChunkSize chunkSize = -1;
     bool chunkSizeSet = false;

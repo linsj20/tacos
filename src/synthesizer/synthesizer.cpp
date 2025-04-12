@@ -117,7 +117,7 @@ void Synthesizer::linkChunkMatching() noexcept {
         const auto [dest, chunk] = selectPostcondition(&currentPostcondition);
 
         // backtrack the TEN to find potential source NPUs
-        const auto sourceNpus = ten.backtrackTEN(dest);
+        const auto sourceNpus = ten.backtrackTEN(dest, chunk);
 
         if (sourceNpus.empty()) {
             continue;

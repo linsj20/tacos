@@ -9,6 +9,7 @@ Copyright (c) 2022 Georgia Institute of Technology
 #include <cassert>
 #include <memory>
 #include <tacos/synthesizer/time_expanded_network.h>
+#include <unordered_set>
 #include <vector>
 #include <limits>
 #include <cstdio>
@@ -26,22 +27,25 @@ TimeExpandedNetwork::TimeExpandedNetwork(
     npusCount = topology->getNpusCount();
     switchCount = topology->getSwitchCount();
 
-    linkCondition.resize(npusCount + switchCount, std::vector<std::set<const Path*>>(npusCount + switchCount, std::set<const Path*>()));
+    linkCondition.resize(npusCount + switchCount, std::vector<std::unordered_set<const Path*>>(npusCount + switchCount, std::unordered_set<const Path*>()));
+    groupCondition.resize(topology->getGroupSize(), std::unordered_set<ChunkID>());
 }
 
 std::set<std::pair<const Path *, Topology::Bandwidth>> TimeExpandedNetwork::backtrackTEN(
-    const NpuID dest) noexcept {
+    const NpuID dest, const ChunkID chunk) noexcept {
     assert(0 <= dest && dest < npusCount);
 
-    const size_t allowedContention = 4;
+    const size_t allowedContention = 8;
 
     // check available source links
     //TODO (linsj20) change linkUserCount from bool to a path_ptr
     auto sourceNpus = std::set<std::pair<const Path *, Bandwidth>>();
     for (auto src = 0; src < npusCount; src++) {
-        if (src == dest) {
-            continue;
-        }
+        auto srcGroup = topology->getGroup(src);
+        auto destGroup = topology->getGroup(dest);
+        auto gc = &groupCondition[destGroup];
+        if (src == dest || 
+            (srcGroup != destGroup && gc->find(chunk) != gc->end())) continue;
         const auto& paths = topology->getPaths(src, dest);
         bool npuAvailable = false;
         const Path *chosenPath = nullptr;
@@ -87,6 +91,8 @@ std::shared_ptr<std::vector<std::tuple<NpuID, NpuID, ChunkID>>> TimeExpandedNetw
 
     auto delta = newCurrentTime - currentTime;
 
+    currentTime = newCurrentTime;
+
     // update link availability
     auto finished = updateLinkAvailability(delta);
 
@@ -100,8 +106,6 @@ std::shared_ptr<std::vector<std::tuple<NpuID, NpuID, ChunkID>>> TimeExpandedNetw
         }
         printf("\n");
     }
-
-    currentTime = newCurrentTime;
 
     return finished;
 }
@@ -134,6 +138,12 @@ void TimeExpandedNetwork::assignPath(const Path *p, ChunkID chunk) noexcept {
                         linkCondition[*a][*b].size());
         a++; b++;
     }
+
+    auto srcGroup = topology->getGroup(p->path->front());
+    auto destGroup = topology->getGroup(p->path->back());
+    auto gc = &groupCondition[destGroup];
+    assert (srcGroup == destGroup || gc->find(chunk) == gc->end());
+    gc->insert(chunk);
 
     Time estimatedTime = currentTime + p->latency + (double)topology->getChunkSize() / bd;
     pathEventTime.insert(estimatedTime + 1);
@@ -173,9 +183,10 @@ std::shared_ptr<std::vector<std::tuple<NpuID, NpuID, ChunkID>>> TimeExpandedNetw
                     const Path *pathAffected = *iter;
                     auto pathBandwidth = getPathBandwidth(pathAffected);
                     auto& [_chunk, _workload, _latency] = pathsInUse[pathAffected];
-                    if (_workload > 1e-9 || _latency > 1e-9) {
+                    if (_workload > 1e-5 || _latency > 1e-5) {
                         pathEventTime.insert(currentTime + _latency + _workload / pathBandwidth + 1);
-                        printf("Time %ld inserted\n", (Time)(currentTime + _latency + _workload / pathBandwidth + 1));
+                        printf("[%ld] Time %ld inserted \n", currentTime, 
+                                (Time)(currentTime + _latency + _workload / pathBandwidth + 1));
                     }
                     iter++;
                 }

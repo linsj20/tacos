@@ -8,13 +8,16 @@ Copyright (c) 2022 Georgia Institute of Technology
 
 #include <cassert>
 #include <endian.h>
+#include <iterator>
 #include <limits>
 #include <tacos/topology/topology.h>
+#include <unordered_set>
 #include <vector>
 #include <queue>
 #include <algorithm>
 #include <numeric>
 #include <cstdio>
+#include <map>
 
 using namespace tacos;
 
@@ -43,6 +46,7 @@ void Topology::setNpusCount(const int newNpusCount, const int newSwitchesCount) 
     shortestPaths.resize(
         deviceCount, 
         std::vector<std::vector<Path>>(deviceCount, std::vector<Path>()));
+    groupInfo.resize(deviceCount, -1);
 }
 
 // TODO 1. Add Path (linked list)
@@ -64,6 +68,7 @@ void Topology::setPath() noexcept {
     }
 
     // Process each source node
+    std::vector<std::vector<Latency>> dists;
     for (int src = 0; src < deviceCount; ++src) {
         // Dijkstra's algorithm for shortest distances
         std::vector<Latency> dist(deviceCount, LARGE_TIME);
@@ -134,6 +139,8 @@ void Topology::setPath() noexcept {
                 dest_paths.push_back(p);
             }
         }
+
+        dists.push_back(dist);
     }
     for (int src = 0; src < deviceCount; src++) {
         for (int dest = 0; dest < deviceCount; dest++) {
@@ -145,6 +152,61 @@ void Topology::setPath() noexcept {
             printf(")\t");
         }
         printf("\n");
+    }
+    setGroup(dists);
+}
+
+int Topology::allocateGroup() noexcept {
+    groups.push_back(std::unordered_set<NpuID>());
+    return groupCount++;
+}
+
+void Topology::setGroup(std::vector<std::vector<Latency>> dists) noexcept {
+    auto deviceCount = npusCount + switchCount;
+
+    std::unordered_set<NpuID> grouped;
+    for (NpuID a = 0; a < deviceCount; a++) {
+        if (grouped.find(a) != grouped.end()) continue;
+
+        int newGroupId = allocateGroup();
+        groups[newGroupId].insert(a);
+        groupInfo[a] = newGroupId;
+        grouped.insert(a); 
+        for (NpuID b = 0; b < deviceCount; b++) {
+            if (a == b || grouped.find(b) != grouped.end()) continue;
+
+            bool sameDist = true;
+            for (NpuID c = 0; c < deviceCount; c++) {
+                if (a == c || b == c) continue;
+
+                if (dists[a][c] != dists[b][c] || 
+                    dists[c][a] != dists[c][b]) {
+                    sameDist = false;
+                    break;
+                }
+            }
+            if (sameDist) {
+                grouped.insert(b);
+                groups[newGroupId].insert(b);
+                groupInfo[b] = newGroupId;
+            }
+        }
+    }
+
+    printf("\t");
+    for (int src = 0; src < deviceCount; src++) {
+        printf("%d\t", src);
+    }
+    printf("\n");
+    for (int src = 0; src < deviceCount; src++) {
+        printf("%d", src);
+        for (int dest = 0; dest < deviceCount; dest++) {
+            printf("\t%.0f", dists[src][dest]);
+        }
+        printf("\n");
+    }
+    for (int npu = 0; npu < deviceCount; npu++) {
+        printf("[%d] group: %d\n", npu, groupInfo[npu]);
     }
 }
 
@@ -291,4 +353,8 @@ const std::vector<Path>* Topology::getPaths(NpuID src, NpuID dest) const noexcep
     assert(0 <= dest && dest < npusCount);
 
     return &shortestPaths[src][dest];
+}
+
+int Topology::getGroup(NpuID npu) const noexcept {
+    return groupInfo[npu];
 }

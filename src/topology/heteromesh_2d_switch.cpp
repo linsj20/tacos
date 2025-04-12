@@ -52,8 +52,8 @@ HeteroMesh2DSwitch::HeteroMesh2DSwitch(const int node_size,
         }
     }
     for (int s1 = 0; s1 < node_num; s1++) {
+        const auto src = npuCount + s1;
         for (int s2 = s1 + 1; s2 < node_num; s2++) {
-            const auto src = npuCount + s1;
             const auto dest = npuCount + s2;
             connect(src, dest, latency_1, bandwidth_1, true);
         }
