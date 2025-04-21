@@ -49,6 +49,7 @@ class TimeExpandedNetwork {
     std::vector<std::vector<std::unordered_set<const Path *>>> linkCondition = {};
     std::vector<std::unordered_set<ChunkID>> groupCondition = {};
     std::map<const Path *, std::tuple<ChunkID, double, double>> pathsInUse = {};
+    std::map<std::pair<int, ChunkID>, NpuID> groupChunks = {};
     std::set<Time> pathEventTime = {};
 
     std::shared_ptr<std::vector<std::tuple<NpuID, NpuID, ChunkID>>> updateLinkAvailability(Time delta) noexcept;

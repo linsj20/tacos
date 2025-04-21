@@ -22,13 +22,13 @@ int main() {
     // construct a topology
     const auto node_size = 8;
     const auto node_num = 2;
-    const auto intra_bandwidth = 25.0;  // GB/s
-    const auto intra_latency = 1500;     // ns
-    const auto inter_bandwidth = 300.0;  // GB/s
-    const auto inter_latency = 500;     // ns
+    const auto intra_bandwidth = 450.0 / 8;  // GB/s
+    const auto intra_latency = 500;     // ns
+    const auto inter_bandwidth = 12.5;  // GB/s
+    const auto inter_latency = 1500;     // ns
 
     const auto topology =
-        std::make_shared<HeteroMesh2DSwitch>(node_size, node_num, intra_bandwidth, intra_latency, inter_bandwidth, inter_latency);
+        std::make_shared<HeteroMesh2DSwitch>(node_size, node_num, intra_latency, intra_bandwidth, inter_latency, inter_bandwidth);
     const auto npusCount = node_size * node_num;
 
     Logger::info("Topology Information");

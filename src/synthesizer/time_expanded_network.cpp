@@ -10,6 +10,7 @@ Copyright (c) 2022 Georgia Institute of Technology
 #include <memory>
 #include <tacos/synthesizer/time_expanded_network.h>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 #include <limits>
 #include <cstdio>
@@ -40,12 +41,18 @@ std::set<std::pair<const Path *, Topology::Bandwidth>> TimeExpandedNetwork::back
     // check available source links
     //TODO (linsj20) change linkUserCount from bool to a path_ptr
     auto sourceNpus = std::set<std::pair<const Path *, Bandwidth>>();
+    int target = -1;
+    auto destGroup = topology->getGroup(dest);
+    auto key = std::make_pair(destGroup, chunk); 
+    if (groupChunks.find(key) != groupChunks.end()) {
+        target = groupChunks[key];
+    }
     for (auto src = 0; src < npusCount; src++) {
         auto srcGroup = topology->getGroup(src);
-        auto destGroup = topology->getGroup(dest);
         auto gc = &groupCondition[destGroup];
-        if (src == dest || 
-            (srcGroup != destGroup && gc->find(chunk) != gc->end())) continue;
+        if (src == dest) continue;
+        if (srcGroup != destGroup && gc->find(chunk) != gc->end()) continue;
+        if (srcGroup == destGroup && target >= 0 && src != target) continue;
         const auto& paths = topology->getPaths(src, dest);
         bool npuAvailable = false;
         const Path *chosenPath = nullptr;
@@ -143,6 +150,11 @@ void TimeExpandedNetwork::assignPath(const Path *p, ChunkID chunk) noexcept {
     auto destGroup = topology->getGroup(p->path->back());
     auto gc = &groupCondition[destGroup];
     assert (srcGroup == destGroup || gc->find(chunk) == gc->end());
+    if (srcGroup == destGroup) {
+        groupChunks[std::make_pair(destGroup, chunk)] = p->path->front();
+    } else {
+        groupChunks[std::make_pair(destGroup, chunk)] = p->path->back();
+    }
     gc->insert(chunk);
 
     Time estimatedTime = currentTime + p->latency + (double)topology->getChunkSize() / bd;

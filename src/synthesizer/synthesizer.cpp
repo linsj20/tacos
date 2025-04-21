@@ -222,6 +222,8 @@ std::pair<const Path *, Synthesizer::Bandwidth> Synthesizer::selectSourceNpu(
         }
     }
 
+    return *bestSourceNpus.begin();
+
     // randomly select one candidate source NPU
     auto bestSourceNpusDist =
         std::uniform_int_distribution<>(0, bestSourceNpus.size() - 1);
