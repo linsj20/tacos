@@ -252,9 +252,9 @@ void Synthesizer::markLinkChunkMatch(const NpuID src,
     //postcondition[dest].erase(chunk);
 
     // if there's no remaining postcondition of the dest, remove it
-    if (postcondition[dest].empty()) {
-        postcondition.erase(dest);
-    }
+    //if (postcondition[dest].empty()) {
+    //    postcondition.erase(dest);
+    //}
 }
 
 bool Synthesizer::synthesisCompleted() const noexcept {

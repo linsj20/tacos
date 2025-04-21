@@ -53,18 +53,19 @@ void XmlWriter::writeNpu(NpuID npuID) noexcept {
     // write all ingress threadblocks
     auto npu = algo.append_child("gpu");
     npu.append_attribute("id") = npuID;
-    npu.append_attribute("i_chunks") = 0;
+    npu.append_attribute("i_chunks") = 1;
     npu.append_attribute("o_chunks") = collective_->chunksPerNpu();
     npu.append_attribute("s_chunks") = 0;
+    int id = 0;
 
     // write all ingress threadblocks
     for (const auto& [src, link] : synthesisResult_.npu(npuID).ingressLinks()) {
-        writeIngressLink(npu, npuID, src, link);
+        writeIngressLink(npu, npuID, src, &id, link);
     }
 
     // write all egress threadblocks
     for (const auto& [dest, link] : synthesisResult_.npu(npuID).egressLinks()) {
-        writeEgressLink(npu, npuID, dest, link);
+        writeEgressLink(npu, npuID, dest, &id, link);
     }
 }
 
@@ -80,15 +81,27 @@ void XmlWriter::save() noexcept {
 void XmlWriter::writeIngressLink(pugi::xml_node& gpu,
                           NpuID npu,
                           NpuID src,
+                          int *id,
                           const LinkResult& link) noexcept {
+    //if (link.ops().size() == 0) return;
     auto tb = gpu.append_child("tb");
+    //tb.append_attribute("id") = *id;
     tb.append_attribute("id") = link.id();
     tb.append_attribute("send") = -1;
     tb.append_attribute("recv") = src;
     tb.append_attribute("chan") = 0;  // FIXME: multi-channel
 
-    // iterate over all steps
+    std::vector<std::pair<CommOp::OpID, CommOp>> linkRes;
     for (const auto& [opID, op] : link.ops()) {
+        linkRes.push_back(std::pair<CommOp::OpID, CommOp>(opID, op));
+    }
+    std::sort(linkRes.begin(), linkRes.end(), 
+              [](const auto& l, const auto& r) {
+                return l.second.chunkID() < r.second.chunkID();
+              });
+    // iterate over all steps
+    //for (const auto& [opID, op] : link.ops()) {
+    for (const auto& [opID, op] : linkRes) {
         const auto chunkID = op.chunkID();
 
         auto step = tb.append_child("step");
@@ -109,20 +122,35 @@ void XmlWriter::writeIngressLink(pugi::xml_node& gpu,
             step.append_attribute("hasdep") = 0;
         }
     }
+    (*id)++;
 }
 
 void XmlWriter::writeEgressLink(pugi::xml_node& gpu,
                           NpuID npu,
                           NpuID dest,
+                          int *id,
                           const LinkResult& link) noexcept {
+    //if (link.ops().size() == 0) return;
+
     auto tb = gpu.append_child("tb");
+    //tb.append_attribute("id") = *id;
     tb.append_attribute("id") = link.id();
     tb.append_attribute("send") = dest;
     tb.append_attribute("recv") = -1;
     tb.append_attribute("chan") = 0;  // FIXME: multi-channel
 
     // iterate over all steps
+    std::vector<std::pair<CommOp::OpID, CommOp>> linkRes;
     for (const auto& [opID, op] : link.ops()) {
+        linkRes.push_back(std::pair<CommOp::OpID, CommOp>(opID, op));
+    }
+    std::sort(linkRes.begin(), linkRes.end(), 
+              [](const auto& l, const auto& r) {
+                return l.second.chunkID() < r.second.chunkID();
+              });
+    // iterate over all steps
+    //for (const auto& [opID, op] : link.ops()) {
+    for (const auto& [opID, op] : linkRes) {
         const auto chunkID = op.chunkID();
 
         auto step = tb.append_child("step");
@@ -151,4 +179,6 @@ void XmlWriter::writeEgressLink(pugi::xml_node& gpu,
             step.append_attribute("hasdep") = 0;
         }
     }
+
+    (*id)++;
 }

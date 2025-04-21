@@ -42,11 +42,13 @@ class XmlWriter {
     void writeIngressLink(pugi::xml_node& gpu,
                           NpuID npu,
                           NpuID src,
+                          int *id,
                           const LinkResult& link) noexcept;
 
     void writeEgressLink(pugi::xml_node& gpu,
                          NpuID npu,
                          NpuID dest,
+                         int *id,
                          const LinkResult& link) noexcept;
 
     void save() noexcept;
