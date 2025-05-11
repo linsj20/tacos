@@ -46,7 +46,7 @@ void Topology::setNpusCount(const int newNpusCount, const int newSwitchesCount) 
     shortestPaths.resize(
         deviceCount, 
         std::vector<std::vector<Path>>(deviceCount, std::vector<Path>()));
-    groupInfo.resize(deviceCount, -1);
+    groupInfo.resize(deviceCount, std::vector<int>());
 }
 
 // TODO 1. Add Path (linked list)
@@ -164,33 +164,70 @@ int Topology::allocateGroup() noexcept {
 void Topology::setGroup(std::vector<std::vector<Latency>> dists) noexcept {
     auto deviceCount = npusCount + switchCount;
 
-    std::unordered_set<NpuID> grouped;
-    for (NpuID a = 0; a < deviceCount; a++) {
-        if (grouped.find(a) != grouped.end()) continue;
-
+    // Each device as a group
+    std::unordered_set<int> to_group;
+    for (NpuID d = 0; d < deviceCount; d++) {
         int newGroupId = allocateGroup();
-        groups[newGroupId].insert(a);
-        groupInfo[a] = newGroupId;
-        grouped.insert(a); 
-        for (NpuID b = 0; b < deviceCount; b++) {
-            if (a == b || grouped.find(b) != grouped.end()) continue;
+        groups[newGroupId].insert(d);
+        groupInfo[d].push_back(newGroupId);
+        to_group.insert(newGroupId);
+    }
 
-            bool sameDist = true;
-            for (NpuID c = 0; c < deviceCount; c++) {
-                if (a == c || b == c) continue;
+    while (true) {
+        bool newGroupCreated = false;
 
-                if (dists[a][c] != dists[b][c] || 
-                    dists[c][a] != dists[c][b]) {
-                    sameDist = false;
-                    break;
+        std::unordered_set<int> grouped;
+        for (auto& a : to_group) {
+            if (grouped.find(a) != grouped.end()) continue;
+
+            int newGroupId = -1;
+            for (auto& b : to_group) {
+                if (a == b || grouped.find(b) != grouped.end()) continue;
+
+                bool match = true;
+                for (auto c : to_group) {
+                    if (a == c || b == c) continue;
+                    NpuID da = *groups[a].begin();
+                    NpuID db = *groups[b].begin();
+                    NpuID dc = *groups[c].begin();
+                    bool npuMatching = da < npusCount && db < npusCount;
+                    bool switchMatching = da >= npusCount && db >= npusCount;
+                    if (!npuMatching && !switchMatching) {
+                        match = false;
+                        break;
+                    }
+                    if (npuMatching && dc >= npusCount) continue;
+                    if (switchMatching && dc < npusCount) continue;
+
+                    if (dists[da][dc] != dists[db][dc] || 
+                        dists[dc][da] != dists[dc][db]) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match) {
+                    if (newGroupId < 0) {
+                        newGroupId = allocateGroup();
+                        newGroupCreated = true;
+                        grouped.insert(a);
+                        for (auto& da : groups[a]) {
+                            groups[newGroupId].insert(da);
+                            groupInfo[da].push_back(newGroupId);
+                        }
+                    }
+                    grouped.insert(b);
+                    for (auto& db : groups[b]) {
+                        groups[newGroupId].insert(db);
+                        groupInfo[db].push_back(newGroupId);
+                    }
                 }
             }
-            if (sameDist) {
-                grouped.insert(b);
-                groups[newGroupId].insert(b);
-                groupInfo[b] = newGroupId;
-            }
         }
+        to_group.clear();
+        for (int d = 0; d < deviceCount; d++) {
+            to_group.insert(groupInfo[d].back());
+        }
+        if (!newGroupCreated) break;
     }
 
     printf("\t");
@@ -206,7 +243,11 @@ void Topology::setGroup(std::vector<std::vector<Latency>> dists) noexcept {
         printf("\n");
     }
     for (int npu = 0; npu < deviceCount; npu++) {
-        printf("[%d] group: %d\n", npu, groupInfo[npu]);
+        printf("[%d] group:", npu);
+        for (auto& g : groupInfo[npu]) {
+            printf(" %d", g);
+        }
+        printf("\n");
     }
 }
 
@@ -356,5 +397,7 @@ const std::vector<Path>* Topology::getPaths(NpuID src, NpuID dest) const noexcep
 }
 
 int Topology::getGroup(NpuID npu) const noexcept {
-    return groupInfo[npu];
+    auto& groups = groupInfo[npu];
+    if (groups.size() <= 1) return groups[0];
+    return groups[1];
 }

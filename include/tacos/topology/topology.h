@@ -95,7 +95,7 @@ class Topology {
     //std::vector<std::vector<std::set<Time>>> linkDelays = {};
     std::vector<std::vector<Time>> linkDelays = {};
     std::vector<std::vector<std::vector<Path>>> shortestPaths = {};
-    std::vector<int> groupInfo = {};
+    std::vector<std::vector<int>> groupInfo = {};
     std::vector<std::unordered_set<NpuID>> groups = {};
 
     Time computeLinkDelay(NpuID src, NpuID dest) const noexcept;
