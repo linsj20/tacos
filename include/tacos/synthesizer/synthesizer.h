@@ -18,6 +18,7 @@ Copyright (c) 2022-2025 Georgia Institute of Technology
 #include <tacos/event_queue/event_queue.h>
 #include <tacos/synthesizer/time_expanded_network.h>
 #include <tacos/topology/topology.h>
+#include <tacos/writer/synthesis_result.h>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -39,10 +40,10 @@ class Synthesizer {
     /// @param topology Target network topology
     /// @param collective Target collective pattern
     /// @param chunkSize Size of each chunk (in bytes)
-    /// @return estimated time to complete the collective pattern
-    [[nodiscard]] Time solve(const Topology& topology,
-                             const Collective& collective,
-                             ChunkSize chunkSize) noexcept;
+    /// @return SynthesisResult containing the collective time and communication operations
+    [[nodiscard]] SynthesisResult solve(const Topology& topology,
+                                        const Collective& collective,
+                                        ChunkSize chunkSize) noexcept;
 
   private:
     /// @brief Map of destination NPU -> set of unsatisfied chunk IDs.
@@ -77,6 +78,9 @@ class Synthesizer {
 
     /// @brief true if chunk c has arrived at NPU n: chunkMap_[c][n] = true
     std::vector<std::vector<bool>> chunkMap_ = {};
+
+    /// @brief Synthesis result to track communication operations for XML generation
+    std::unique_ptr<SynthesisResult> synthesisResult_ = nullptr;
 
     /// @brief Random number generator engine
     std::mt19937 randomEngine{std::random_device{}()};

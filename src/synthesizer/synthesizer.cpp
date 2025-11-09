@@ -14,9 +14,9 @@ using namespace tacos;
 
 Synthesizer::Synthesizer() noexcept = default;
 
-Synthesizer::Time Synthesizer::solve(const Topology& topology,
-                                     const Collective& collective,
-                                     ChunkSize chunkSize) noexcept {
+SynthesisResult Synthesizer::solve(const Topology& topology,
+                                   const Collective& collective,
+                                   ChunkSize chunkSize) noexcept {
     assert(chunkSize > 0);
 
     // initialize the synthesizer
@@ -58,9 +58,10 @@ Synthesizer::Time Synthesizer::solve(const Topology& topology,
     }
 
     // all matching has been finished
-    // return measured collective_ time
+    // set collective time and return synthesis result
     assert(collectiveTime_ > 0);
-    return collectiveTime_;
+    synthesisResult_->collectiveTime(collectiveTime_);
+    return std::move(*synthesisResult_);
 }
 
 void Synthesizer::initialize_(const Topology& topology,
@@ -83,6 +84,9 @@ void Synthesizer::initialize_(const Topology& topology,
 
     // construct chunkMap_
     chunkMap_.assign(chunksCount_, std::vector<bool>(npusCount, false));
+
+    // construct synthesis result for XML generation
+    synthesisResult_ = std::make_unique<SynthesisResult>(*topology_, *collective_);
 }
 
 void Synthesizer::markPrecondition_() noexcept {
@@ -181,6 +185,10 @@ void Synthesizer::expandTenTimestep_(PostconditionMap* const postconditionMap) n
             // mark the chunk arrived at dest, and mark this TEN link as available
             chunkMap_[chunk][dest] = true;
             ten_->transferFinished(src, dest);
+
+            // record the send and recv operations for XML generation
+            synthesisResult_->npu(src).linkTo(dest).send(chunk);
+            synthesisResult_->npu(dest).linkFrom(src).recv(chunk);
 
             // mark this postcondition as satisfied
             // i.e., remove this chunk from the postcondition map

@@ -11,6 +11,8 @@ add_library(tacos
     topology/topology.cpp ${CMAKE_SOURCE_DIR}/include/tacos/topology/topology.h
     topology/mesh_2d.cpp ${CMAKE_SOURCE_DIR}/include/tacos/topology/mesh_2d.h
     topology/mesh_2d_hetero.cpp ${CMAKE_SOURCE_DIR}/include/tacos/topology/mesh_2d_hetero.h
+    topology/hetero_mesh_2d.cpp ${CMAKE_SOURCE_DIR}/include/tacos/topology/hetero_mesh_2d.h
+    topology/hetero_mesh_3d.cpp ${CMAKE_SOURCE_DIR}/include/tacos/topology/hetero_mesh_3d.h
     topology/torus_2d.cpp ${CMAKE_SOURCE_DIR}/include/tacos/topology/torus_2d.h
     topology/torus_3d.cpp ${CMAKE_SOURCE_DIR}/include/tacos/topology/torus_3d.h
     topology/hypercube_3d.cpp ${CMAKE_SOURCE_DIR}/include/tacos/topology/hypercube_3d.h
@@ -20,11 +22,18 @@ add_library(tacos
     event_queue/timer.cpp ${CMAKE_SOURCE_DIR}/include/tacos/event_queue/timer.h
     synthesizer/time_expanded_network.cpp ${CMAKE_SOURCE_DIR}/include/tacos/synthesizer/time_expanded_network.h
     synthesizer/synthesizer.cpp ${CMAKE_SOURCE_DIR}/include/tacos/synthesizer/synthesizer.h
+    writer/comm_op.cpp ${CMAKE_SOURCE_DIR}/include/tacos/writer/comm_op.h
+    writer/link_result.cpp ${CMAKE_SOURCE_DIR}/include/tacos/writer/link_result.h
+    writer/npu_result.cpp ${CMAKE_SOURCE_DIR}/include/tacos/writer/npu_result.h
+    writer/synthesis_result.cpp ${CMAKE_SOURCE_DIR}/include/tacos/writer/synthesis_result.h
+    writer/xml_writer.cpp ${CMAKE_SOURCE_DIR}/include/tacos/writer/xml_writer.h
+    writer/xml_transformer.cpp ${CMAKE_SOURCE_DIR}/include/tacos/writer/xml_transformer.h
 )
 target_include_directories(tacos
     PUBLIC ${CMAKE_SOURCE_DIR}/include
     PUBLIC ${CMAKE_SOURCE_DIR}/include/tacos
 )
+target_link_libraries(tacos PUBLIC pugixml)
 
 # TACOS executable
 add_executable(tacos_exec
