@@ -30,17 +30,20 @@ void XmlWriter::writeAlgo() noexcept {
     algo.append_attribute("name") = "tacos";
     algo.append_attribute("proto") = "Simple";
     algo.append_attribute("nchannels") = 1;
-    algo.append_attribute("nchunksperloop") = collective_.chunksCount() / topology_.npusCount();
+    algo.append_attribute("nchunksperloop") = collective_.chunksCount();
     algo.append_attribute("ngpus") = topology_.npusCount();
     algo.append_attribute("coll") = "allgather";
     algo.append_attribute("inplace") = 1;
+    algo.append_attribute("outofplace") = 0;
+    algo.append_attribute("minBytes") = 0;
+    algo.append_attribute("maxBytes") = 0;
 }
 
 void XmlWriter::writeNpu(NpuID npuId) noexcept {
     auto npu = algo.append_child("gpu");
     npu.append_attribute("id") = npuId;
     npu.append_attribute("i_chunks") = 0;
-    npu.append_attribute("o_chunks") = collective_.chunksCount() / topology_.npusCount();
+    npu.append_attribute("o_chunks") = collective_.chunksCount();
     npu.append_attribute("s_chunks") = 0;
     for (const auto& [src, link] : synthesisResult_.npu(npuId).ingressLinks()) {
         writeIngressLink(npu, npuId, src, link);
